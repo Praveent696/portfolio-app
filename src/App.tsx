@@ -8,11 +8,23 @@ import ResumeForm from './components/ResumeForm';
 import Skills from './components/skills/skills';
 import Summary from './components/summary/summary';
 import { useAppSelector } from './store/hooks';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 function App() {
   const [editing, setEditing] = useState(false);
+  const [isValid, setIsValid] = useState(true);
   const resumeData = useAppSelector((state) => state.resume);
+  const formRef = useRef<{ validate: () => boolean } | null>(null);
+
+  const handleSubmit = () => {
+    if (formRef.current && formRef.current.validate) {
+      const valid = formRef.current.validate();
+      setIsValid(valid);
+      if (valid) {
+        setEditing(false);
+      }
+    }
+  };
 
   return (
     <div className="resume-container">
@@ -23,46 +35,48 @@ function App() {
       )}
       {editing ? (
         <>
-          <ResumeForm />
+          <ResumeForm ref={formRef} />
           <button
             type="button"
             style={{ marginTop: 16 }}
-            onClick={() => setEditing(false)}
+            onClick={handleSubmit}
           >
             Submit Resume
           </button>
         </>
       ) : (
-        <>
-          <Header data={resumeData.personal}></Header>
-          <main>
-            <Summary summary={resumeData.summary} />
-            <Skills
-              languages={resumeData.technologies.frameworks}
-              tools={resumeData.technologies.tools}
-            />
-            {/* Experience Section - Mapping over array */}
-            <section className="section-block">
-              <h2>Experience</h2>
-              <hr className="section-separator" />
-              {resumeData.experience.map((job, index) => (
-                <Experience key={index} job={job} />
-              ))}
-            </section>
-            {/* Projects Section - Mapping over array */}
-            <section className="section-block">
-              <h2>Projects</h2>
-              <hr className="section-separator" />
-              {resumeData.projects.map((project, index) => (
-                <Projects key={index} project={project} />
-              ))}
-            </section>
-            {/* Education */}
-            <Education data={resumeData.education} />
-            {/* Awards */}
-            <Awards awardList={resumeData.awards} />
-          </main>
-        </>
+        isValid && (
+          <>
+            <Header data={resumeData.personal}></Header>
+            <main>
+              <Summary summary={resumeData.summary} />
+              <Skills
+                languages={resumeData.technologies.frameworks}
+                tools={resumeData.technologies.tools}
+              />
+              {/* Experience Section - Mapping over array */}
+              <section className="section-block">
+                <h2>Experience</h2>
+                <hr className="section-separator" />
+                {resumeData.experience.map((job, index) => (
+                  <Experience key={index} job={job} />
+                ))}
+              </section>
+              {/* Projects Section - Mapping over array */}
+              <section className="section-block">
+                <h2>Projects</h2>
+                <hr className="section-separator" />
+                {resumeData.projects.map((project, index) => (
+                  <Projects key={index} project={project} />
+                ))}
+              </section>
+              {/* Education */}
+              <Education data={resumeData.education} />
+              {/* Awards */}
+              <Awards awardList={resumeData.awards} />
+            </main>
+          </>
+        )
       )}
     </div>
   );

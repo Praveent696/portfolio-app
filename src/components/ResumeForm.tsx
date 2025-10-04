@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import {
   updatePersonal,
@@ -9,19 +9,121 @@ import {
   updateEducation,
   updateAwards
 } from '../store/resumeSlice';
+import PersonalInfoFields from './fields/PersonalInfoFields';
+import SummaryField from './fields/SummaryField';
+import TechnologiesFields from './fields/TechnologiesFields';
+import ExperienceFields from './fields/ExperienceFields';
+import ProjectsFields from './fields/ProjectsFields';
+import EducationFields from './fields/EducationFields';
+import AwardsFields from './fields/AwardsFields';
 
-const ResumeForm: React.FC = () => {
-  const resume = useAppSelector((state) => state.resume);
+// --- Types ---
+interface Personal {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  location: string;
+}
+interface Experience {
+  company: string;
+  role: string;
+  location: string;
+  duration: string;
+  details: string[];
+}
+interface Project {
+  title: string;
+  dates: string;
+  techStack: string;
+  details: string[];
+}
+interface Education {
+  institution: string;
+  degree: string;
+  duration: string;
+  gpa: string;
+  coursework: string;
+}
+interface Award {
+  title: string;
+  organization: string;
+  year: string | number;
+  month: string | number;
+  priority: string | number;
+  sourceText: string;
+}
+interface ResumeState {
+  personal: Personal;
+  summary: string;
+  technologies: { frameworks: string; tools: string };
+  experience: Experience[];
+  projects: Project[];
+  education: Education;
+  awards: Award[];
+}
+type FieldError = Record<string, string>;
+type ArrayFieldError = Record<number, FieldError>;
+
+const validateEmail = (email: string) => /.+@.+\..+/.test(email);
+
+const ResumeForm = forwardRef<{ validate: () => boolean }, object>((_props, ref) => {
+  const resume: ResumeState = useAppSelector((state) => state.resume);
   const dispatch = useAppDispatch();
+  const [errors, setErrors] = useState<FieldError>({});
+  const [expErrors, setExpErrors] = useState<ArrayFieldError>({});
+  const [projErrors, setProjErrors] = useState<ArrayFieldError>({});
+  const [awardErrors, setAwardErrors] = useState<ArrayFieldError>({});
 
-  // Helper for array fields
-  const handleArrayChange = <T,>(arr: T[], idx: number, key: keyof T, value: any): T[] => {
-    return arr.map((item, i) => i === idx ? { ...item, [key]: value } : item);
+  // Validation
+  const validate = () => {
+    const errs: FieldError = {};
+    if (!resume.personal.name) errs.name = 'Required';
+    if (!resume.personal.title) errs.title = 'Required';
+    if (!resume.personal.email) errs.email = 'Required';
+    else if (!validateEmail(resume.personal.email)) errs.email = 'Invalid email';
+    if (!resume.personal.phone) errs.phone = 'Required';
+    if (!resume.personal.location) errs.location = 'Required';
+    if (!resume.summary) errs.summary = 'Required';
+    setErrors(errs);
+    // Experience validation
+    const expErrs: ArrayFieldError = {};
+    resume.experience.forEach((exp, i) => {
+      expErrs[i] = {};
+      if (!exp.company) expErrs[i].company = 'Required';
+      if (!exp.role) expErrs[i].role = 'Required';
+      if (!exp.location) expErrs[i].location = 'Required';
+      if (!exp.duration) expErrs[i].duration = 'Required';
+    });
+    setExpErrors(expErrs);
+    // Projects validation
+    const projErrs: ArrayFieldError = {};
+    resume.projects.forEach((proj, i) => {
+      projErrs[i] = {};
+      if (!proj.title) projErrs[i].title = 'Required';
+      if (!proj.dates) projErrs[i].dates = 'Required';
+      if (!proj.techStack) projErrs[i].techStack = 'Required';
+    });
+    setProjErrors(projErrs);
+    // Awards validation
+    const awdErrs: ArrayFieldError = {};
+    resume.awards.forEach((awd, i) => {
+      awdErrs[i] = {};
+      if (!awd.title) awdErrs[i].title = 'Required';
+      if (!awd.organization) awdErrs[i].organization = 'Required';
+      if (!awd.year) awdErrs[i].year = 'Required';
+      if (!awd.month) awdErrs[i].month = 'Required';
+    });
+    setAwardErrors(awdErrs);
+    return Object.keys(errs).length === 0 &&
+      Object.values(expErrs).every((e) => Object.keys(e).length === 0) &&
+      Object.values(projErrs).every((e) => Object.keys(e).length === 0) &&
+      Object.values(awdErrs).every((e) => Object.keys(e).length === 0);
   };
 
   // Add/Remove handlers for array sections
   const addExperience = () => {
-    const newExp = { company: '', role: '', location: '', duration: '', details: [''] };
+    const newExp: Experience = { company: '', role: '', location: '', duration: '', details: [''] };
     dispatch(updateExperience([...resume.experience, newExp]));
   };
   const removeExperience = (idx: number) => {
@@ -29,7 +131,7 @@ const ResumeForm: React.FC = () => {
     dispatch(updateExperience(updated));
   };
   const addProject = () => {
-    const newProj = { title: '', dates: '', techStack: '', details: [''] };
+    const newProj: Project = { title: '', dates: '', techStack: '', details: [''] };
     dispatch(updateProjects([...resume.projects, newProj]));
   };
   const removeProject = (idx: number) => {
@@ -37,7 +139,7 @@ const ResumeForm: React.FC = () => {
     dispatch(updateProjects(updated));
   };
   const addAward = () => {
-    const newAward = { title: '', organization: '', year: '', month: '', priority: '', sourceText: '' };
+    const newAward: Award = { title: '', organization: '', year: '', month: '', priority: '', sourceText: '' };
     dispatch(updateAwards([...resume.awards, newAward]));
   };
   const removeAward = (idx: number) => {
@@ -45,90 +147,65 @@ const ResumeForm: React.FC = () => {
     dispatch(updateAwards(updated));
   };
 
+  // Section onChange handlers
+  const handlePersonalChange = (field: string, value: string) => {
+    dispatch(updatePersonal({ ...resume.personal, [field]: value }));
+  };
+  const handleSummaryChange = (value: string) => {
+    dispatch(updateSummary(value));
+  };
+  const handleTechnologiesChange = (field: string, value: string) => {
+    dispatch(updateTechnologies({ ...resume.technologies, [field]: value }));
+  };
+  const handleExperienceChange = (items: Experience[]) => {
+    dispatch(updateExperience(items));
+  };
+  const handleProjectsChange = (items: Project[]) => {
+    dispatch(updateProjects(items));
+  };
+  const handleEducationChange = (field: keyof Education, value: string) => {
+    dispatch(updateEducation({ ...resume.education, [field]: value }));
+  };
+  const handleAwardsChange = (items: Award[]) => {
+    dispatch(updateAwards(items));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const valid = validate();
+    if (!valid) {
+      // Optionally scroll to first error field
+      const firstErrorField = document.querySelector('input[aria-invalid="true"]');
+      if (firstErrorField) {
+        (firstErrorField as HTMLElement).focus();
+      }
+      return;
+    }
+    // Optionally, you can dispatch a save or show a success message here
+  };
+
+  useImperativeHandle(ref, () => ({
+    validate
+  }));
+
   return (
-    <form style={{marginBottom: 32, background: '#f8f9fa', padding: 24, borderRadius: 8}}>
+    <form style={{marginBottom: 32, background: '#f8f9fa', padding: 24, borderRadius: 8}} onSubmit={handleSubmit}>
       <h2>Edit Resume Info</h2>
-      {/* Personal Info */}
-      <div style={{marginBottom: 16}}>
-        <label>Name: <input value={resume.personal.name} onChange={e => dispatch(updatePersonal({ ...resume.personal, name: e.target.value }))} /></label>
-      </div>
-      <div style={{marginBottom: 16}}>
-        <label>Title: <input value={resume.personal.title} onChange={e => dispatch(updatePersonal({ ...resume.personal, title: e.target.value }))} /></label>
-      </div>
-      <div style={{marginBottom: 16}}>
-        <label>Email: <input value={resume.personal.email} onChange={e => dispatch(updatePersonal({ ...resume.personal, email: e.target.value }))} /></label>
-      </div>
-      <div style={{marginBottom: 16}}>
-        <label>Phone: <input value={resume.personal.phone} onChange={e => dispatch(updatePersonal({ ...resume.personal, phone: e.target.value }))} /></label>
-      </div>
-      <div style={{marginBottom: 16}}>
-        <label>Location: <input value={resume.personal.location} onChange={e => dispatch(updatePersonal({ ...resume.personal, location: e.target.value }))} /></label>
-      </div>
-      {/* Summary */}
-      <div style={{marginBottom: 16}}>
-        <label>Summary:<br/>
-          <textarea value={resume.summary} onChange={e => dispatch(updateSummary(e.target.value))} rows={4} style={{width: '100%'}} />
-        </label>
-      </div>
-      {/* Technologies */}
-      <div style={{marginBottom: 16}}>
-        <label>Frameworks: <input value={resume.technologies.frameworks} onChange={e => dispatch(updateTechnologies({ ...resume.technologies, frameworks: e.target.value }))} style={{width: '80%'}} /></label>
-      </div>
-      <div style={{marginBottom: 16}}>
-        <label>Tools: <input value={resume.technologies.tools} onChange={e => dispatch(updateTechnologies({ ...resume.technologies, tools: e.target.value }))} style={{width: '80%'}} /></label>
-      </div>
-      {/* Experience */}
-      <h3>Experience <button type="button" onClick={addExperience}>Add</button></h3>
-      {resume.experience.map((exp, idx) => (
-        <div key={idx} style={{border: '1px solid #ddd', padding: 8, marginBottom: 8, borderRadius: 4}}>
-          <button type="button" onClick={() => removeExperience(idx)} style={{float: 'right', color: 'red'}}>Remove</button>
-          <label>Company: <input value={exp.company} onChange={e => dispatch(updateExperience(handleArrayChange(resume.experience, idx, 'company', e.target.value)))} /></label><br/>
-          <label>Role: <input value={exp.role} onChange={e => dispatch(updateExperience(handleArrayChange(resume.experience, idx, 'role', e.target.value)))} /></label><br/>
-          <label>Location: <input value={exp.location} onChange={e => dispatch(updateExperience(handleArrayChange(resume.experience, idx, 'location', e.target.value)))} /></label><br/>
-          <label>Duration: <input value={exp.duration} onChange={e => dispatch(updateExperience(handleArrayChange(resume.experience, idx, 'duration', e.target.value)))} /></label><br/>
-          <label>Details:<br/>
-            <textarea value={exp.details.join('\n')} onChange={e => dispatch(updateExperience(handleArrayChange(resume.experience, idx, 'details', e.target.value.split('\n'))))} rows={3} style={{width: '100%'}} />
-          </label>
-        </div>
-      ))}
-      {/* Projects */}
-      <h3>Projects <button type="button" onClick={addProject}>Add</button></h3>
-      {resume.projects.map((proj, idx) => (
-        <div key={idx} style={{border: '1px solid #ddd', padding: 8, marginBottom: 8, borderRadius: 4}}>
-          <button type="button" onClick={() => removeProject(idx)} style={{float: 'right', color: 'red'}}>Remove</button>
-          <label>Title: <input value={proj.title} onChange={e => dispatch(updateProjects(handleArrayChange(resume.projects, idx, 'title', e.target.value)))} /></label><br/>
-          <label>Dates: <input value={proj.dates} onChange={e => dispatch(updateProjects(handleArrayChange(resume.projects, idx, 'dates', e.target.value)))} /></label><br/>
-          <label>Tech Stack: <input value={proj.techStack} onChange={e => dispatch(updateProjects(handleArrayChange(resume.projects, idx, 'techStack', e.target.value)))} style={{width: '80%'}} /></label><br/>
-          <label>Details:<br/>
-            <textarea value={proj.details.join('\n')} onChange={e => dispatch(updateProjects(handleArrayChange(resume.projects, idx, 'details', e.target.value.split('\n'))))} rows={3} style={{width: '100%'}} />
-          </label>
-        </div>
-      ))}
-      {/* Education */}
-      <h3>Education</h3>
-      <div style={{border: '1px solid #ddd', padding: 8, marginBottom: 8, borderRadius: 4}}>
-        <label>Institution: <input value={resume.education.institution} onChange={e => dispatch(updateEducation({ ...resume.education, institution: e.target.value }))} /></label><br/>
-        <label>Degree: <input value={resume.education.degree} onChange={e => dispatch(updateEducation({ ...resume.education, degree: e.target.value }))} /></label><br/>
-        <label>Duration: <input value={resume.education.duration} onChange={e => dispatch(updateEducation({ ...resume.education, duration: e.target.value }))} /></label><br/>
-        <label>GPA: <input value={resume.education.gpa} onChange={e => dispatch(updateEducation({ ...resume.education, gpa: e.target.value }))} /></label><br/>
-        <label>Coursework:<br/>
-          <textarea value={resume.education.coursework} onChange={e => dispatch(updateEducation({ ...resume.education, coursework: e.target.value }))} rows={2} style={{width: '100%'}} />
-        </label>
-      </div>
-      {/* Awards */}
-      <h3>Awards <button type="button" onClick={addAward}>Add</button></h3>
-      {resume.awards.map((award, idx) => (
-        <div key={idx} style={{border: '1px solid #ddd', padding: 8, marginBottom: 8, borderRadius: 4}}>
-          <button type="button" onClick={() => removeAward(idx)} style={{float: 'right', color: 'red'}}>Remove</button>
-          <label>Title: <input value={award.title} onChange={e => dispatch(updateAwards(handleArrayChange(resume.awards, idx, 'title', e.target.value)))} /></label><br/>
-          <label>Organization: <input value={award.organization} onChange={e => dispatch(updateAwards(handleArrayChange(resume.awards, idx, 'organization', e.target.value)))} /></label><br/>
-          <label>Year: <input value={award.year} onChange={e => dispatch(updateAwards(handleArrayChange(resume.awards, idx, 'year', e.target.value)))} /></label><br/>
-          <label>Month: <input value={award.month} onChange={e => dispatch(updateAwards(handleArrayChange(resume.awards, idx, 'month', e.target.value)))} /></label><br/>
-          <label>Source Text: <input value={award.sourceText} onChange={e => dispatch(updateAwards(handleArrayChange(resume.awards, idx, 'sourceText', e.target.value)))} style={{width: '80%'}} /></label>
-        </div>
-      ))}
+      <PersonalInfoFields personal={resume.personal} onChange={handlePersonalChange} errors={errors} />
+      <SummaryField summary={resume.summary} onChange={handleSummaryChange} error={errors.summary} />
+      <TechnologiesFields technologies={resume.technologies} onChange={handleTechnologiesChange} errors={{}} />
+      {resume.experience.length > 0 && (
+        <ExperienceFields experience={resume.experience} onChange={handleExperienceChange} onAdd={addExperience} onRemove={removeExperience} errors={expErrors} />
+      )}
+      {resume.projects.length > 0 && (
+        <ProjectsFields projects={resume.projects} onChange={handleProjectsChange} onAdd={addProject} onRemove={removeProject} errors={projErrors} />
+      )}
+      <EducationFields education={resume.education} onChange={handleEducationChange} errors={{}} />
+      {resume.awards.length > 0 && (
+        <AwardsFields awards={resume.awards} onChange={handleAwardsChange} onAdd={addAward} onRemove={removeAward} errors={awardErrors} />
+      )}
     </form>
   );
-};
+});
 
 export default ResumeForm;
