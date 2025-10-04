@@ -8,7 +8,7 @@ import ResumeForm from './components/ResumeForm';
 import Skills from './components/skills/skills';
 import Summary from './components/summary/summary';
 import { useAppSelector } from './store/hooks';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 function App() {
   const [editing, setEditing] = useState(false);
