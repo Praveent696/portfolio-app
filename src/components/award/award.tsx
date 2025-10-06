@@ -23,24 +23,37 @@ export interface IAwardSection {
   awardList: IAwardDetail[];
 }
 
-const months: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+const months: string[] = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 function Awards({ awardList }: IAwardSection) {
-  // Sort the awards by priority, ensuring the highest priority (1) is first
   const sortedAwards = [...awardList].sort((a, b) => a.priority - b.priority);
 
   return (
-    <section className="awards-section">
-      <h3>Additional Experience and Awards</h3>
+    <section className="awards-section" style={{paddingTop: 8}}>
+      <h3 style={{color: '#1976d2', fontWeight: 700, letterSpacing: '0.5px'}}>Additional Experience and Awards</h3>
       <hr className="section-separator" />
-      <ul>
+      <ul style={{listStyle: 'none', padding: 0, margin: 0}}>
         {sortedAwards.map((award, index) => (
-          <li key={index} className="award-item">
-            <span className="award-detail">
-              <strong>{award.title}</strong> at {award.organization}
-            </span>
-            <span className="tag-pill" style={{marginLeft:8}}>
+          <li key={index} className="award-item" style={{
+            display: 'flex', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #f0f0f0', paddingBottom: '10px',
+            transition: 'background 0.2s', borderRadius: '6px',
+            background: 'transparent',
+            cursor: 'default'
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#f7fafd')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <span className="award-date" style={{minWidth: 110, color: '#607d8b', fontStyle: 'italic', fontSize: '0.97em', fontWeight: 500}}>
               {months[award.month - 1]} {award.year}
+            </span>
+            <span className="award-title" style={{fontWeight: 700, fontSize: '1.08em', color: '#222', marginLeft: 22, letterSpacing: '0.02em'}}>
+              {award.title}
+            </span>
+            <span className="award-org" style={{marginLeft: 'auto', color: '#1976d2', fontWeight: 600, fontSize: '1em', letterSpacing: '0.01em'}}>
+              {award.organization}
             </span>
           </li>
         ))}
